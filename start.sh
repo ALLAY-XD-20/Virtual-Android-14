@@ -1,39 +1,57 @@
 #!/bin/bash
 set -e
 
-############################
+########################################
+# PxTool - Virtual Android 14 Launcher
+########################################
+
+clear
+cat <<'EOF'
+██████╗ ██╗  ██╗████████╗ ██████╗  ██████╗ ██╗     
+██╔══██╗╚██╗██╔╝╚══██╔══╝██╔═══██╗██╔═══██╗██║     
+██████╔╝ ╚███╔╝    ██║   ██║   ██║██║   ██║██║     
+██╔═══╝  ██╔██╗    ██║   ██║   ██║██║   ██║██║     
+██║     ██╔╝ ██╗   ██║   ╚██████╔╝╚██████╔╝███████╗
+╚═╝     ╚═╝  ╚═╝   ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝
+            PxTool - Android 14 Virtual System
+EOF
+
+########################################
 # CONFIG
-############################
+########################################
 BASE="/opt/android14"
 ISO="$BASE/bliss14.iso"
 DISK="$BASE/android14.qcow2"
 
-ISO_URL="https://downloads.sourceforge.net/project/blissos-x86/Official/BlissOS-v14.10/BlissOS-v14.10-x86_64.iso"
+# ✅ Stable Android 14
+ISO_URL="https://downloads.sourceforge.net/project/blissos-x86/Official/BlissOS-v14.3/BlissOS-v14.3-x86_64.iso"
 
+# Ports
 VNC_DISPLAY=1
 VNC_PORT=5901
 NOVNC_PORT=8080
 
+# Resources
 RAM_MB=4096
 CPU_CORES=4
 DISK_SIZE=40G
 
+# Vertical resolution
 RESOLUTION="1080x1920"
-############################
-
-echo "=== ANDROID 14 VERTICAL + AUTO PORTS ==="
+########################################
 
 # ROOT CHECK
 if [ "$EUID" -ne 0 ]; then
-  echo "❌ Run as root"
+  echo "❌ Please run as root"
   exit 1
 fi
 
 # KVM CHECK
 if [ ! -e /dev/kvm ]; then
-  echo "❌ KVM NOT AVAILABLE"
+  echo "❌ KVM not available on this VPS"
   exit 1
 fi
+
 echo "✅ KVM detected"
 
 # DNS FIX
@@ -42,7 +60,8 @@ nameserver 8.8.8.8
 nameserver 1.1.1.1
 EOF
 
-# INSTALL DEPENDENCIES
+# INSTALL PACKAGES
+echo "📦 Installing dependencies..."
 apt update -y
 apt install -y \
 qemu-system-x86 qemu-utils \
@@ -50,9 +69,8 @@ wget curl \
 websockify novnc \
 net-tools ufw
 
-# 🔥 AUTO-OPEN PORTS (UFW + IPTABLES SAFE)
-echo "🔥 Opening ports automatically..."
-
+# AUTO OPEN PORTS
+echo "🔓 Opening ports automatically..."
 ufw allow $NOVNC_PORT/tcp || true
 ufw allow $VNC_PORT/tcp || true
 ufw --force enable || true
@@ -64,26 +82,27 @@ iptables -I INPUT -p tcp --dport $VNC_PORT -j ACCEPT || true
 mkdir -p "$BASE"
 cd "$BASE"
 
-# DOWNLOAD BLISS OS 14
+# DOWNLOAD ISO
 if [ ! -f "$ISO" ]; then
-  echo "[+] Downloading Bliss OS 14 (Android 14)"
+  echo "⬇️ Downloading Bliss OS 14 (Android 14)"
   wget --content-disposition -O "$ISO" "$ISO_URL"
 fi
 
 # CREATE DISK
 if [ ! -f "$DISK" ]; then
+  echo "💽 Creating virtual disk"
   qemu-img create -f qcow2 "$DISK" "$DISK_SIZE"
 fi
 
 # REMOVE OLD SERVICE
-systemctl stop android14 2>/dev/null || true
-systemctl disable android14 2>/dev/null || true
-rm -f /etc/systemd/system/android14.service
+systemctl stop pxtool-android 2>/dev/null || true
+systemctl disable pxtool-android 2>/dev/null || true
+rm -f /etc/systemd/system/pxtool-android.service
 
 # CREATE SYSTEMD SERVICE
-cat >/etc/systemd/system/android14.service <<EOF
+cat >/etc/systemd/system/pxtool-android.service <<EOF
 [Unit]
-Description=Android 14 Vertical (VNC + noVNC)
+Description=PxTool Android 14 (VNC + noVNC)
 After=network.target
 
 [Service]
@@ -120,16 +139,15 @@ EOF
 
 # ENABLE & START
 systemctl daemon-reload
-systemctl enable android14
-systemctl restart android14
+systemctl enable pxtool-android
+systemctl restart pxtool-android
 
 echo ""
 echo "=============================================="
-echo " ANDROID 14 (VERTICAL) READY"
+echo " PxTool ANDROID 14 IS READY"
 echo ""
 echo " 🌐 noVNC : http://YOUR_IP:$NOVNC_PORT"
 echo " 🖥  VNC   : YOUR_IP:$VNC_PORT"
-echo " 🔓 Ports opened automatically"
-echo " 📱 Mode  : Portrait (1080x1920)"
-echo " 🔑 Root  : Enable in Android settings"
+echo " 📱 Mode  : Vertical (1080x1920)"
+echo " 🔑 Root  : Enable in Android Settings"
 echo "=============================================="
