@@ -2,75 +2,78 @@
 set -e
 
 #####################################
-# PxTool - Docker Android 14 noVNC
+# Rooted Android 14 (Generic Device)
 #####################################
 
 clear
 cat <<'EOF'
-██████╗ ██╗  ██╗████████╗ ██████╗  ██████╗ ██╗     
-██╔══██╗╚██╗██╔╝╚══██╔══╝██╔═══██╗██╔═══██╗██║     
-██████╔╝ ╚███╔╝    ██║   ██║   ██║██║   ██║██║     
-██╔═══╝  ██╔██╗    ██║   ██║   ██║██║   ██║██║     
-██║     ██╔╝ ██╗   ██║   ╚██████╔╝╚██████╔╝███████╗
-╚═╝     ╚═╝  ╚═╝   ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝
-        PxTool - Docker Android 14 (noVNC)
+██████╗  ██████╗  ██████╗ ████████╗
+██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝
+██████╔╝██║   ██║██║   ██║   ██║   
+██╔══██╗██║   ██║██║   ██║   ██║   
+██║  ██║╚██████╔╝╚██████╔╝   ██║   
+╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝   
+ Rooted Android 14 • Docker • AOSP
 EOF
 
-echo "🔍 Checking Docker..."
+#####################################
+# CONFIG
+#####################################
+IMAGE="budtmo/docker-android:emulator_14.0"
+CONTAINER="android14-rooted"
 
+NOVNC_PORT=8080
+VNC_PORT=5901
+
+BASE="$(pwd)"
+APK_DIR="$BASE/apks"
+DATA_DIR="$BASE/data"
 #####################################
-# INSTALL DOCKER IF NOT PRESENT
-#####################################
-if ! command -v docker >/dev/null 2>&1; then
-  echo "📦 Docker not found. Installing Docker..."
+
+# INSTALL DOCKER IF NEEDED
+if ! command -v docker >/dev/null; then
   curl -fsSL https://get.docker.com | sh
 fi
 
-#####################################
-# START DOCKER DAEMON (CODESPACES SAFE)
-#####################################
-if ! docker info >/dev/null 2>&1; then
-  echo "🚀 Starting Docker daemon..."
-  sudo service docker start || true
+# START DOCKER
+docker info >/dev/null 2>&1 || sudo service docker start || true
+
+# CREATE DIRS
+mkdir -p "$APK_DIR" "$DATA_DIR"
+
+# REMOVE OLD CONTAINER
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+
+# PULL IMAGE
+docker pull "$IMAGE"
+
+# RUN ROOTED ANDROID
+docker run -d \
+  --name "$CONTAINER" \
+  --privileged \
+  -p ${NOVNC_PORT}:6080 \
+  -p ${VNC_PORT}:5900 \
+  -v "$APK_DIR":/apks \
+  -v "$DATA_DIR":/data \
+  -e DEVICE="generic" \
+  -e ANDROID_EMULATOR_FORCE_32BIT=false \
+  -e WEB_VNC=true \
+  -e AUTO_INSTALL_APKS=true \
+  -e APK_PATH=/apks \
+  -e ENABLE_ROOT=true \
+  "$IMAGE"
+
+# AUTO PUBLIC PORT (CODESPACES)
+if [ -n "$CODESPACES" ]; then
+  gh codespace ports visibility 8080:public || true
 fi
 
-#####################################
-# CLEAN OLD CONTAINER
-#####################################
-docker rm -f android14 >/dev/null 2>&1 || true
-
-#####################################
-# PULL ANDROID 14 IMAGE
-#####################################
-echo "⬇️ Pulling Android 14 Docker image..."
-docker pull budtmo/docker-android:emulator_14.0
-
-#####################################
-# RUN ANDROID 14
-#####################################
-echo "🚀 Starting Android 14 container..."
-
-docker run -d \
-  --name android14 \
-  --privileged \
-  -p 8080:6080 \
-  -p 5901:5900 \
-  -e DEVICE="pixel" \
-  -e WEB_VNC=true \
-  -e WEB_VNC_PORT=6080 \
-  -e APPIUM=false \
-  -e ADB_SERVER_PORT=5037 \
-  budtmo/docker-android:emulator_14.0
-
-#####################################
-# DONE
-#####################################
 echo ""
 echo "======================================"
-echo " ✅ ANDROID 14 IS STARTING"
+echo " ✅ ROOTED ANDROID 14 STARTED"
 echo ""
-echo " 🌐 noVNC  : http://localhost:8080"
-echo " 🖥  VNC    : localhost:5901"
-echo ""
-echo " ⏳ First boot takes 1–3 minutes"
+echo " 🌐 noVNC : http://localhost:8080"
+echo " 🖥  VNC   : localhost:5901"
+echo " 🔓 Root  : adb root enabled"
+echo " 💾 Data  : ./data"
 echo "======================================"
